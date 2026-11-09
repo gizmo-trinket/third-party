@@ -1,0 +1,88 @@
+name: Mirror
+
+# packages/<namespace>/<name>/<version>.toml: a package mirrored from upstream as
+# published (ORG-008 §3). A pull request downloads every asset and checks it against
+# the manifest's SHA-256, which takes the hash from upstream, not from our download.
+# A merge does the same and publishes it. Only this repository's main can assume the
+# publish role.
+
+on:
+  pull_request:
+    paths: ['packages/**', 'scripts/**', '.github/workflows/mirror.yml']
+  push:
+    branches: [main]
+    paths: ['packages/**']
+
+permissions:
+  contents: read
+
+env:
+  PUBLISH_ROLE_ARN: arn:aws:iam::185529490620:role/github-actions-third-party-publish
+  AWS_REGION: us-east-2
+  EMPTY_TREE: 4b825dc642cb6eb9a060e54bf8d69288fbee4904
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      packages: ${{ steps.changed.outputs.packages }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - id: changed
+        shell: bash
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          [[ "$BASE" =~ ^0+$ || -z "$BASE" ]] && BASE="$EMPTY_TREE"
+          packages=$(python3 scripts/registry.py changed "$BASE" "$HEAD" | jq -c .packages)
+          echo "packages=$packages" >> "$GITHUB_OUTPUT"
+          echo "Changed packages: $packages"
+
+  verify:
+    needs: plan
+    if: needs.plan.outputs.packages != '[]' && github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJSON(needs.plan.outputs.packages) }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Download and verify
+        env:
+          PACKAGE: ${{ matrix.package }}
+        run: python3 scripts/registry.py fetch "$PACKAGE" "$RUNNER_TEMP/dist"
+
+  publish:
+    needs: plan
+    if: needs.plan.outputs.packages != '[]' && github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    # One publisher at a time: two runs must never race to create the same version.
+    concurrency:
+      group: publish
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      max-parallel: 1
+      matrix:
+        package: ${{ fromJSON(needs.plan.outputs.packages) }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Download and verify
+        env:
+          PACKAGE: ${{ matrix.package }}
+        run: python3 scripts/registry.py fetch "$PACKAGE" "$RUNNER_TEMP/dist"
+      - name: Assume the publish role
+        uses: aws-actions/configure-aws-credentials@acca2b1b2070338fb9fd1ca27ecee81d687e58e5
+        with:
+          role-to-assume: ${{ env.PUBLISH_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Publish
+        env:
+          PACKAGE: ${{ matrix.package }}
+        run: python3 scripts/registry.py publish "$PACKAGE" "$RUNNER_TEMP/dist"
