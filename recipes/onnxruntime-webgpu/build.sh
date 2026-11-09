@@ -7,10 +7,15 @@
 #
 # The flags end with --cmake_extra_defines' values, so CMAKE_INSTALL_PREFIX is appended
 # to that list.
+#
+# macOS runners ship bash 3.2 as /bin/bash: no mapfile, so the flags are read with a
+# loop, and nothing newer than 3.2 is used.
 set -euo pipefail
 
 : "${SRC_DIR:?}" "${INSTALL_DIR:?}" "${FLAGS_FILE:?}"
-mapfile -d '' -t flags < "$FLAGS_FILE"
+flags=()
+while IFS= read -r -d '' f; do flags+=("$f"); done < "$FLAGS_FILE"
+(( ${#flags[@]} > 0 )) || { echo "no flags in $FLAGS_FILE" >&2; exit 1; }
 
 command -v ninja >/dev/null || brew install ninja
 

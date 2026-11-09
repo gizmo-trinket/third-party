@@ -46,7 +46,8 @@ Upstream publishes nothing usable, so we build it. Add
   tag, because a tag can be moved after the recipe was reviewed.
 - Each `[[platform]]` has a GitHub runner, the build flags, and the `keep` patterns
   that pick files from the install tree. `build.sh` gets `SRC_DIR`, `INSTALL_DIR` and
-  `FLAGS_FILE` (the flags, NUL-separated).
+  `FLAGS_FILE` (the flags, NUL-separated). macOS runners run it with bash 3.2, so no
+  `mapfile` or other bash 4 features.
 
 **The pull request builds every platform** and uploads the result as a CI artifact,
 so you can test it before anything is published. **Merging builds again**, records a
