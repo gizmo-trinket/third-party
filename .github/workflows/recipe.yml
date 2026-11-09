@@ -100,8 +100,19 @@ jobs:
           NAME: ${{ steps.recipe.outputs.name }}
         run: |
           python3 scripts/registry.py flags "$RECIPE" "$PLATFORM" > "$RUNNER_TEMP/flags"
+          target=$(python3 scripts/registry.py get "$RECIPE" "$PLATFORM" macos_deployment_target)
+          [[ -n "$target" ]] && export MACOSX_DEPLOYMENT_TARGET="$target"
           SRC_DIR="$RUNNER_TEMP/src" INSTALL_DIR="$RUNNER_TEMP/install" FLAGS_FILE="$RUNNER_TEMP/flags" \
             "recipes/$NAME/build.sh"
+
+      # A macOS library built for a newer macOS than declared fails to load on the
+      # older ones, and nothing else would notice.
+      - name: Verify the macOS deployment target
+        if: runner.os == 'macOS'
+        env:
+          RECIPE: ${{ matrix.recipe }}
+          PLATFORM: ${{ matrix.platform }}
+        run: python3 scripts/registry.py verify-macos "$RECIPE" "$PLATFORM" --install "$RUNNER_TEMP/install"
 
       - name: Stage
         env:

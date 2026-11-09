@@ -14,7 +14,11 @@ license_files = ["LICENSE", "ThirdPartyNotices.txt"]
 [[platform]]
 name   = "osx-arm64"
 runner = "macos-15"
-# Apps linking this must declare a minimum macOS of 13.4.
+# Apps linking this must declare a minimum macOS of 13.4. --apple_deploy_target alone
+# did not reach the macOS build (the first CI build came out minos 15.0), so the
+# target is also set through CMake and MACOSX_DEPLOYMENT_TARGET, and checked after
+# the build.
+macos_deployment_target = "13.4"
 flags = [
   "--build_shared_lib",
   "--use_webgpu",
@@ -26,6 +30,7 @@ flags = [
   "onnxruntime_BUILD_DAWN_MONOLITHIC_LIBRARY=OFF",
   "DAWN_ENABLE_METAL=ON",
   "DAWN_ENABLE_VULKAN=OFF",
+  "CMAKE_OSX_DEPLOYMENT_TARGET=13.4",
 ]
 keep = [
   "include/**",
