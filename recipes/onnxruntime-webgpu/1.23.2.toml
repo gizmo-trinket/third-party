@@ -1,0 +1,39 @@
+# ONNX Runtime 1.23.2 as a shared library with the WebGPU execution provider, on Dawn
+# over Metal. Microsoft's macOS release has no WebGPU, so this is built here
+# (ORG-008 §4). Flags from Lillian's local build. Dawn is linked into
+# libonnxruntime itself (monolithic library off), so the one dylib is all an app ships.
+
+package = "gizmo-trinket/onnxruntime-webgpu"
+source  = "https://github.com/microsoft/onnxruntime.git"
+tag     = "v1.23.2"
+commit  = "a83fc4d58cb48eb68890dd689f94f28288cf2278"
+
+license       = "MIT"
+license_files = ["LICENSE", "ThirdPartyNotices.txt"]
+
+[[platform]]
+name   = "osx-arm64"
+runner = "macos-15"
+# Apps linking this must declare a minimum macOS of 13.4. --apple_deploy_target alone
+# did not reach the macOS build (the first CI build came out minos 15.0), so the
+# target is also set through CMake and MACOSX_DEPLOYMENT_TARGET, and checked after
+# the build.
+macos_deployment_target = "13.4"
+flags = [
+  "--build_shared_lib",
+  "--use_webgpu",
+  "--osx_arch", "arm64",
+  "--apple_deploy_target", "13.4",
+  "--skip_tests",
+  "--cmake_extra_defines",
+  "onnxruntime_BUILD_UNIT_TESTS=OFF",
+  "onnxruntime_BUILD_DAWN_MONOLITHIC_LIBRARY=OFF",
+  "DAWN_ENABLE_METAL=ON",
+  "DAWN_ENABLE_VULKAN=OFF",
+  "CMAKE_OSX_DEPLOYMENT_TARGET=13.4",
+]
+keep = [
+  "include/**",
+  "lib/libonnxruntime.1.23.2.dylib",
+  "lib/libonnxruntime.dylib",
+]

@@ -182,6 +182,56 @@ def cmd_flags(args) -> None:
     sys.stdout.write("".join(f + "\0" for f in plat.get("flags", [])))
 
 
+def cmd_get(args) -> None:
+    """One field of a platform, or nothing if it is not set."""
+    e = load(args.file)
+    plat = next(p for p in e["data"]["platform"] if p["name"] == args.platform)
+    value = plat.get(args.key)
+    if value is not None:
+        print(value)
+
+
+def minos_of(otool_l: str) -> list[str]:
+    """Every minimum OS version an `otool -l` listing declares (LC_BUILD_VERSION and
+    the older LC_VERSION_MIN_MACOSX)."""
+    found, in_cmd = [], False
+    for line in otool_l.splitlines():
+        line = line.strip()
+        if line.startswith("cmd "):
+            in_cmd = line in ("cmd LC_BUILD_VERSION", "cmd LC_VERSION_MIN_MACOSX")
+        elif in_cmd and (line.startswith("minos ") or line.startswith("version ")):
+            found.append(line.split()[1])
+            in_cmd = False
+    return found
+
+
+def cmd_verify_macos(args) -> None:
+    """Fail unless every Mach-O file the recipe keeps targets the declared macOS."""
+    e = load(args.file)
+    plat = next(p for p in e["data"]["platform"] if p["name"] == args.platform)
+    target = plat.get("macos_deployment_target")
+    if not target:
+        print("no macos_deployment_target declared; nothing to check")
+        return
+    install, checked, bad = Path(args.install), 0, []
+    for p in sorted(install.rglob("*")):
+        rel = p.relative_to(install).as_posix()
+        if p.is_symlink() or not p.is_file() or not matches(rel, plat["keep"]):
+            continue
+        if p.read_bytes()[:4] not in (b"\xcf\xfa\xed\xfe", b"\xca\xfe\xba\xbe"):
+            continue
+        versions = minos_of(subprocess.run(["otool", "-l", str(p)], check=True, capture_output=True, text=True).stdout)
+        checked += 1
+        if not versions or any(v != target for v in versions):
+            bad.append(f"{rel}: minos {versions or 'missing'}")
+        else:
+            print(f"ok  {rel}  minos {target}")
+    if bad:
+        raise Invalid(f"{args.file}: expected macOS {target}: " + "; ".join(bad))
+    if not checked:
+        raise Invalid(f"{args.file}: no Mach-O files among the kept files")
+
+
 def sha256_of(path: Path) -> str:
     h = hashlib.sha256()
     with path.open("rb") as f:
@@ -307,6 +357,9 @@ def main() -> None:
     p = sub.add_parser("changed"); p.add_argument("base"); p.add_argument("head"); p.set_defaults(fn=cmd_changed)
     p = sub.add_parser("matrix"); p.add_argument("files", nargs="+"); p.set_defaults(fn=cmd_matrix)
     p = sub.add_parser("flags"); p.add_argument("file"); p.add_argument("platform"); p.set_defaults(fn=cmd_flags)
+    p = sub.add_parser("get"); p.add_argument("file"); p.add_argument("platform"); p.add_argument("key"); p.set_defaults(fn=cmd_get)
+    p = sub.add_parser("verify-macos"); p.add_argument("file"); p.add_argument("platform")
+    p.add_argument("--install", required=True); p.set_defaults(fn=cmd_verify_macos)
     p = sub.add_parser("fetch"); p.add_argument("file"); p.add_argument("out"); p.set_defaults(fn=cmd_fetch)
     p = sub.add_parser("stage")
     p.add_argument("file"); p.add_argument("platform"); p.add_argument("--install", required=True)
