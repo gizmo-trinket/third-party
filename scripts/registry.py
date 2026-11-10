@@ -35,8 +35,23 @@ OWN_NAMESPACE = "gizmo-trinket"
 # recorded `license_decision`.
 PERMISSIVE = {
     "MIT", "BSD-2-Clause", "BSD-3-Clause", "Apache-2.0", "Zlib", "NCSA", "ISC",
-    "BSL-1.0", "Unlicense", "0BSD",
+    "BSL-1.0", "Unlicense", "0BSD", "bzip2-1.0.6",
 }
+
+# The identifiers in an SPDX expression ("MIT OR Apache-2.0", "Zlib AND CPL-1.0").
+SPDX_TOKEN = re.compile(r"[A-Za-z0-9.+-]+")
+SPDX_OPERATORS = {"AND", "OR", "WITH"}
+SHA1 = re.compile(r"^[0-9a-f]{40}$")
+
+
+def license_ids(expression: str) -> set[str]:
+    return {t for t in SPDX_TOKEN.findall(expression) if t not in SPDX_OPERATORS}
+
+
+def is_permissive(expression: str) -> bool:
+    """Permissive only if every identifier in the expression is."""
+    ids = license_ids(expression)
+    return bool(ids) and ids <= PERMISSIVE
 
 NAME = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 VERSION = re.compile(r"^[0-9][0-9A-Za-z.+-]*$")
@@ -80,8 +95,9 @@ def validate(entry: dict) -> None:
     license_id = d.get("license")
     if not isinstance(license_id, str) or not license_id:
         raise Invalid(f"{path}: license (an SPDX identifier) is required")
-    if license_id not in PERMISSIVE and not str(d.get("license_decision", "")).strip():
-        raise Invalid(f"{path}: {license_id} is not on the permissive list; record why we may redistribute it in license_decision (ORG-008 §6)")
+    if not is_permissive(license_id) and not str(d.get("license_decision", "")).strip():
+        others = sorted(license_ids(license_id) - PERMISSIVE)
+        raise Invalid(f"{path}: {', '.join(others) or license_id} is not on the permissive list; record why we may redistribute it in license_decision (ORG-008 §6)")
     files = d.get("license_files")
     if not isinstance(files, list) or not files:
         raise Invalid(f"{path}: license_files must list the license and notice files to ship with it")
@@ -92,9 +108,13 @@ def validate(entry: dict) -> None:
             raise Invalid(f"{path}: at least one [[asset]] is required")
         seen = set()
         for a in assets:
-            for key in ("platform", "url", "sha256"):
+            for key in ("platform", "url", "sha256", "sha256_source"):
                 if not isinstance(a.get(key), str) or not a[key]:
-                    raise Invalid(f"{path}: every [[asset]] needs {key}")
+                    raise Invalid(f"{path}: every [[asset]] needs {key}" + (
+                        " (where the hash came from: an upstream checksum, a GitHub release asset digest, or 'computed at review')"
+                        if key == "sha256_source" else ""))
+            if "upstream_sha1" in a and not SHA1.match(str(a["upstream_sha1"])):
+                raise Invalid(f"{path}: {a['platform']} upstream_sha1 must be 40 lowercase hex characters")
             if not a["url"].startswith("https://"):
                 raise Invalid(f"{path}: {a['url']} is not https")
             if not SHA256.match(a["sha256"]):
@@ -103,8 +123,13 @@ def validate(entry: dict) -> None:
                 raise Invalid(f"{path}: platform {a['platform']} appears twice")
             seen.add(a["platform"])
         for f in files:
-            if not str(f).startswith("https://"):
-                raise Invalid(f"{path}: license file {f} must be an https URL")
+            f = str(f)
+            if f.startswith("https://"):
+                continue
+            # A license text that exists only inside an upstream archive is committed
+            # here, under licenses/.
+            if not f.startswith("licenses/") or not (repo_root(path) / f).is_file():
+                raise Invalid(f"{path}: license file {f} must be an https URL or an existing file under licenses/")
     else:
         for key in ("source", "tag", "commit"):
             if not isinstance(d.get(key), str) or not d[key]:
@@ -126,6 +151,14 @@ def validate(entry: dict) -> None:
             if p["name"] in seen:
                 raise Invalid(f"{path}: platform {p['name']} appears twice")
             seen.add(p["name"])
+
+
+def repo_root(path: Path) -> Path:
+    """The directory holding packages/ or recipes/ for an entry."""
+    for parent in Path(path).resolve().parents:
+        if parent.name in ("packages", "recipes"):
+            return parent.parent
+    return Path.cwd()
 
 
 def load(path: str) -> dict:
@@ -261,10 +294,25 @@ def cmd_fetch(args) -> None:
         if got != a["sha256"]:
             dest.unlink()
             raise Invalid(f"{args.file}: {name} has sha256 {got}, manifest says {a['sha256']}")
-        print(f"ok  {name}  {got}")
-    for url in e["data"]["license_files"]:
-        download(url, out / Path(url).name)
-        print(f"ok  {Path(url).name} (license)")
+        if "upstream_sha1" in a:
+            h = hashlib.sha1(dest.read_bytes()).hexdigest()
+            if h != a["upstream_sha1"]:
+                dest.unlink()
+                raise Invalid(f"{args.file}: {name} has sha1 {h}, upstream pins {a['upstream_sha1']}")
+        print(f"ok  {name}  {got}  ({a['sha256_source']})")
+    for f in e["data"]["license_files"]:
+        # Flat, because publish uploads the top level only. Prefixed with license- and
+        # the project it came from, so two LICENSE files never collide.
+        if f.startswith("https://"):
+            parts = f.split("/")
+            label = parts[4] if "githubusercontent.com" in f else parts[2]
+            dest = out / f"license-{label}-{Path(f).name}"
+            download(f, dest)
+        else:
+            rel = Path(f).relative_to("licenses")
+            dest = out / ("license-" + "-".join(rel.parts))
+            shutil.copy(repo_root(Path(args.file)) / f, dest)
+        print(f"ok  {dest.name}")
     shutil.copy(args.file, out / f"{e['name']}-{e['version']}.toml")
 
 

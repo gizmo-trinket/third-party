@@ -1,0 +1,10 @@
+# AppImageKit's AppRun as Tauri's bundler downloads it ("apprun-old"); it is the
+# entry point inside our AppImage. Versioned by the asset's upload date (2025-07-20).
+license = "MIT"
+license_files = ["https://raw.githubusercontent.com/AppImage/AppImageKit/939ff4d4c033caa0170d0cac643098b5b5664528/LICENSE"]
+
+[[asset]]
+platform      = "x86_64-linux"
+url           = "https://github.com/tauri-apps/binary-releases/releases/download/apprun-old/AppRun-x86_64"
+sha256        = "f30140a43a0a59e46db21bdefdf749b9e9f2c6946e92afabbacf98b8ae73fb4f"
+sha256_source = "GitHub release asset digest"

@@ -1,0 +1,11 @@
+# The GTK plugin script Tauri's bundler runs when building the AppImage. The bundler
+# fetches it from master, which moves; this pins commit dda522b, and the version
+# names that commit.
+license = "MIT"
+license_files = ["https://raw.githubusercontent.com/tauri-apps/linuxdeploy-plugin-gtk/dda522bce37387f1b853d9095713bfaa924c8423/LICENSE.txt"]
+
+[[asset]]
+platform      = "any"
+url           = "https://raw.githubusercontent.com/tauri-apps/linuxdeploy-plugin-gtk/dda522bce37387f1b853d9095713bfaa924c8423/linuxdeploy-plugin-gtk.sh"
+sha256        = "7804c9eef13e59bf2783aad9882ef9db8f3f3f9e8d631874b1d348d550a3693f"
+sha256_source = "computed at review, 2026-11-10, from the file at commit dda522b; the commit pins the content"

@@ -1,0 +1,22 @@
+# NSIS 3.11 as Tauri's bundler downloads it to build the Windows installer
+# (tauri-bundler 2.x for tauri-cli 2.11.2, bundle/windows/nsis/mod.rs).
+
+license = "Zlib AND bzip2-1.0.6 AND CPL-1.0"
+license_decision = """
+NSIS is zlib/libpng except its compression modules: bzip2 (permissive) and LZMA
+(Common Public License 1.0). Tauri compresses installers with LZMA by default, so
+the unmodified LZMA decompressor is in every installer we ship. CPL-1.0 permits
+distributing it in object code under our own terms if we disclaim warranties on
+the contributors' behalf and say where its source is available; NSIS's COPYING
+(shipped with our third-party notices) does both, and the source is NSIS's own.
+We do not modify NSIS. Accepted by Andrew Seme for Gizmo & Trinket LLC on <date,
+at merge>.
+"""
+license_files = ["licenses/nsis/COPYING"]
+
+[[asset]]
+platform      = "windows"
+url           = "https://github.com/tauri-apps/binary-releases/releases/download/nsis-3.11/nsis-3.11.zip"
+sha256        = "c7d27f780ddb6cffb4730138cd1591e841f4b7edb155856901cdf5f214394fa1"
+sha256_source = "GitHub release asset digest; also upstream_sha1 pinned by tauri-bundler (NSIS_SHA1)"
+upstream_sha1 = "ef7ff767e5cbd9edd22add3a32c9b8f4500bb10d"
