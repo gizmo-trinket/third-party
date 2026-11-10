@@ -8,6 +8,9 @@ name: Recipe
 #   merge         build again, record a build provenance attestation binding each
 #                 archive to this run and the recipe commit, then publish it as
 #                 gizmo-trinket/<name>@<version>.
+#   dispatch      build, attest and publish one named recipe from main, when a merge
+#                 that should have published it didn't (a failed run, a fix to this
+#                 workflow). Publishing an existing version still fails.
 
 on:
   pull_request:
@@ -15,6 +18,12 @@ on:
   push:
     branches: [main]
     paths: ['recipes/**']
+  workflow_dispatch:
+    inputs:
+      recipe:
+        description: "Recipe to build and publish, e.g. recipes/onnxruntime-webgpu/1.23.2.toml"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -39,9 +48,15 @@ jobs:
         env:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
           HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          DISPATCHED: ${{ inputs.recipe }}
         run: |
-          [[ "$BASE" =~ ^0+$ || -z "$BASE" ]] && BASE="$EMPTY_TREE"
-          recipes=$(python3 scripts/registry.py changed "$BASE" "$HEAD" | jq -c .recipes)
+          if [[ -n "$DISPATCHED" ]]; then
+            [[ -f "$DISPATCHED" ]] || { echo "::error::No recipe at $DISPATCHED"; exit 1; }
+            recipes=$(jq -cn --arg r "$DISPATCHED" '[$r]')
+          else
+            [[ "$BASE" =~ ^0+$ || -z "$BASE" ]] && BASE="$EMPTY_TREE"
+            recipes=$(python3 scripts/registry.py changed "$BASE" "$HEAD" | jq -c .recipes)
+          fi
           matrix='[]'
           if [[ "$recipes" != '[]' ]]; then
             mapfile -t files < <(jq -r '.[]' <<<"$recipes")
@@ -131,7 +146,9 @@ jobs:
 
   publish:
     needs: [plan, build]
-    if: github.event_name == 'push' && needs.plan.outputs.recipes != '[]'
+    # Only from main: the publish role trusts nothing else, and a dispatch from another
+    # branch would only fail at credentials after building.
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && needs.plan.outputs.recipes != '[]'
     runs-on: ubuntu-24.04
     concurrency:
       group: publish
@@ -143,17 +160,23 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
+      # Flat: every archive straight into artifacts/. Archive names already carry the
+      # recipe, version and platform, so nothing collides.
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           pattern: recipe-*
           path: artifacts
+          merge-multiple: true
+
+      - name: List archives
+        run: ls -la artifacts && compgen -G 'artifacts/*.tar.gz' > /dev/null
 
       # A built package's checksum is ours, so it proves only that nothing changed
       # after publishing. The attestation records how it was made (ORG-008 §4).
       - name: Attest build provenance
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-path: artifacts/*/*.tar.gz
+          subject-path: artifacts/*.tar.gz
 
       - name: Assume the publish role
         uses: aws-actions/configure-aws-credentials@acca2b1b2070338fb9fd1ca27ecee81d687e58e5
@@ -172,6 +195,6 @@ jobs:
             name=$(basename "$(dirname "$recipe")"); version=$(basename "$recipe" .toml)
             dir="$RUNNER_TEMP/publish/$name-$version"
             mkdir -p "$dir"
-            cp artifacts/recipe-"$name"-"$version"-*/*.tar.gz "$dir/"
+            cp artifacts/"$name"-"$version"-*.tar.gz "$dir/"
             python3 scripts/registry.py publish "$recipe" "$dir"
           done
