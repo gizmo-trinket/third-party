@@ -33,6 +33,7 @@ class Entries(unittest.TestCase):
         'license = "MIT"\n'
         'license_files = ["https://example.com/LICENSE"]\n'
         '[[asset]]\nplatform = "win-x64"\nurl = "https://example.com/a.zip"\nsha256 = "' + "a" * 64 + '"\n'
+        'sha256_source = "upstream SHA256SUMS"\n'
     )
 
     def test_a_recipe_is_valid(self):
@@ -52,6 +53,30 @@ class Entries(unittest.TestCase):
         # Top-level keys must come before the first [[asset]] table.
         ok = 'license_decision = "Microsoft permits redistribution of dxil.dll; see PR #1"\n' + bad
         registry.load(str(self.mirror(ok)))
+
+    def test_every_asset_says_where_its_hash_came_from(self):
+        with self.assertRaisesRegex(registry.Invalid, "sha256_source"):
+            registry.load(str(self.mirror(self.GOOD.replace('sha256_source = "upstream SHA256SUMS"\n', ""))))
+
+    def test_spdx_expressions_are_permissive_only_if_every_id_is(self):
+        self.assertTrue(registry.is_permissive("MIT OR Apache-2.0"))
+        self.assertTrue(registry.is_permissive("Zlib AND bzip2-1.0.6"))
+        self.assertFalse(registry.is_permissive("Zlib AND bzip2-1.0.6 AND CPL-1.0"))
+        with self.assertRaisesRegex(registry.Invalid, "CPL-1.0"):
+            registry.load(str(self.mirror(self.GOOD.replace('"MIT"', '"Zlib AND CPL-1.0"'))))
+
+    def test_upstream_sha1_must_be_a_sha1(self):
+        with self.assertRaisesRegex(registry.Invalid, "upstream_sha1"):
+            registry.load(str(self.mirror(self.GOOD + 'upstream_sha1 = "EF7F"\n')))
+        registry.load(str(self.mirror(self.GOOD + 'upstream_sha1 = "' + "b" * 40 + '"\n')))
+
+    def test_license_file_may_be_committed_under_licenses(self):
+        write(self.tmp / "licenses/nsis/COPYING", "zlib")
+        ok = self.GOOD.replace('["https://example.com/LICENSE"]', '["licenses/nsis/COPYING"]')
+        registry.load(str(self.mirror(ok)))
+        missing = self.GOOD.replace('["https://example.com/LICENSE"]', '["licenses/absent/LICENSE"]')
+        with self.assertRaisesRegex(registry.Invalid, "licenses/"):
+            registry.load(str(self.mirror(missing)))
 
     def test_bad_hash_is_rejected(self):
         with self.assertRaisesRegex(registry.Invalid, "sha256"):

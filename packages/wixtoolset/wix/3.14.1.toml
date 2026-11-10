@@ -1,0 +1,18 @@
+# WiX Toolset 3.14.1, which Tauri's bundler downloads to build the MSI
+# (bundle/windows/msi/mod.rs). Needed only while ui builds an MSI; ui#268 drops it.
+
+license = "MS-RL"
+license_decision = """
+WiX is under the Microsoft Reciprocal License, a file-level copyleft: it obliges us
+to publish source only for WiX files we modify and distribute. We use it unmodified,
+as a build tool; the MSI it produces carries WiX's standard UI and custom-action
+code unmodified. Mirroring into our private registry is not distribution. Accepted
+by Andrew Seme for Gizmo & Trinket LLC on <date, at merge>.
+"""
+license_files = ["https://raw.githubusercontent.com/wixtoolset/wix3/wix3141rtm/LICENSE.TXT"]
+
+[[asset]]
+platform      = "windows"
+url           = "https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix314-binaries.zip"
+sha256        = "6ac824e1642d6f7277d0ed7ea09411a508f6116ba6fae0aa5f2c7daa2ff43d31"
+sha256_source = "tauri-bundler WIX_SHA256 (bundle/windows/msi/mod.rs)"

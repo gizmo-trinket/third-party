@@ -1,0 +1,20 @@
+# linuxdeploy as Tauri's bundler downloads it to build the AppImage
+# (bundle/linux/appimage/linuxdeploy.rs). Upstream's release tag ("linuxdeploy") has
+# no version, so the version here is the date the asset was uploaded (2024-07-29),
+# which is when its bytes last changed.
+
+license = "MIT"
+license_decision = """
+linuxdeploy itself is MIT, but its AppImage bundles build tools under other
+licenses, including patchelf (GPL-3.0). It is a build tool: nothing from this
+AppImage ships in our application. Mirroring into our private registry is not
+distribution to third parties. Accepted by Andrew Seme for Gizmo & Trinket LLC on
+<date, at merge>.
+"""
+license_files = ["https://raw.githubusercontent.com/linuxdeploy/linuxdeploy/07333c6e942c7d71782b66be924c5d867f9dfdfc/LICENSE.txt"]
+
+[[asset]]
+platform      = "x86_64-linux"
+url           = "https://github.com/tauri-apps/binary-releases/releases/download/linuxdeploy/linuxdeploy-x86_64.AppImage"
+sha256        = "e762bea85c8eb0d4b3508d46e5c1f037f717d0f9303ae3b4aafc8b04991fa1ef"
+sha256_source = "computed at review, 2026-11-10: upstream publishes no hash, and the asset predates GitHub release digests"

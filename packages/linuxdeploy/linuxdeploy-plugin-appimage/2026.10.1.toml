@@ -1,0 +1,17 @@
+# linuxdeploy's AppImage output plugin, from its "continuous" release, which moves:
+# this pins the build uploaded 2026-10-01, and the version is that date.
+
+license = "MIT"
+license_decision = """
+The plugin is MIT, but its AppImage bundles appimagetool and squashfs tools, some
+under GPL-2.0. It is a build tool; what it embeds in our AppImage is the AppImage
+type-2 runtime (MIT). Mirroring into our private registry is not distribution to
+third parties. Accepted by Andrew Seme for Gizmo & Trinket LLC on <date, at merge>.
+"""
+license_files = ["https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-appimage/536b068787179ea901964bd7dabc7bf61e4941c3/LICENSE.txt"]
+
+[[asset]]
+platform      = "x86_64-linux"
+url           = "https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage"
+sha256        = "49d6a17160675a6bd1781699aae6bdf7692d98552e02a3671d2183d10547842e"
+sha256_source = "GitHub release asset digest (continuous release, asset updated 2026-10-01)"

@@ -1,0 +1,13 @@
+# Tauri's NSIS plugin, embedded in the Windows installer (bundle/windows/nsis/mod.rs).
+license = "MIT OR Apache-2.0"
+license_files = [
+  "https://raw.githubusercontent.com/tauri-apps/nsis-tauri-utils/nsis_tauri_utils-v0.5.3/LICENSE_MIT",
+  "https://raw.githubusercontent.com/tauri-apps/nsis-tauri-utils/nsis_tauri_utils-v0.5.3/LICENSE_APACHE-2.0",
+]
+
+[[asset]]
+platform      = "windows"
+url           = "https://github.com/tauri-apps/nsis-tauri-utils/releases/download/nsis_tauri_utils-v0.5.3/nsis_tauri_utils.dll"
+sha256        = "5ba143b5db4a87d32d6e7802e033330aae56cbceabe0d1e3ba41948385ad4709"
+sha256_source = "GitHub release asset digest; also upstream_sha1 pinned by tauri-bundler (NSIS_TAURI_UTILS_SHA1)"
+upstream_sha1 = "75197fee3c6a814fe035788d1c34ead39349b860"

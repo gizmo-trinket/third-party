@@ -1,0 +1,71 @@
+# ONNX Runtime 1.23.2 as pyke prebuilds it for the ort crate (ort-sys 2.0.0-rc.11),
+# the archives ui's build downloads today from cdn.pyke.io. Raw LZMA2 tar streams,
+# unpacked by ort-sys itself. Names are kept as upstream's, so ort's cache layout can
+# be filled from here.
+#
+# The WebGPU archives also carry Dawn and the DirectX Shader Compiler, so this one
+# package holds four projects' code, and dxil.dll is Microsoft's own signed binary
+# under Microsoft's terms, not open source. That is why it needs a license decision.
+
+license = "MIT AND BSD-3-Clause AND NCSA AND LicenseRef-Microsoft-DXC"
+license_decision = """
+dxil.dll (Windows WebGPU archive only) is Microsoft's binary, under the Microsoft
+Software License Terms for the DirectX Shader Compiler (licenses/microsoft/
+directx-shader-compiler/LICENSE-MS.txt), which allow its object code to be
+distributed in applications we develop, provided that:
+
+- it is distributed only inside an application that adds significant primary
+  functionality to it (The Oracle does; dxil.dll only validates shaders for it);
+- our distributors and end users agree to terms that protect it and Microsoft at
+  least as much as Microsoft's terms do: The Oracle's end-user terms must cover
+  this before a Windows build containing it ships;
+- Gizmo & Trinket LLC indemnifies Microsoft for claims arising from our
+  application, except those based solely on the unmodified dxil.dll;
+- we do not modify it or remove Microsoft's notices. Its Authenticode signature is
+  Microsoft's and is kept: _sign.yml signs only unsigned DLLs;
+- we do not use Microsoft's trademarks to suggest endorsement.
+
+Open point: the terms limit distribution to files named in the release's
+"distributables file list". No such list was found in dxc_2026_09_29.zip; dxil.dll
+is described by Microsoft as the signing binary that ships with dxcompiler for
+redistribution. Confirm before relying on it.
+
+Mirroring into our private CodeArtifact registry is not distribution to third
+parties. Accepted by Andrew Seme for Gizmo & Trinket LLC on <date, at merge>.
+"""
+license_files = [
+  "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.23.2/LICENSE",
+  "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.23.2/ThirdPartyNotices.txt",
+  "https://raw.githubusercontent.com/google/dawn/43af65b60452f3e51ea94db848b6bb8c053a1fd0/LICENSE",
+  "https://raw.githubusercontent.com/microsoft/DirectXShaderCompiler/v1.9.2609/LICENSE.TXT",
+  "https://raw.githubusercontent.com/microsoft/DirectXShaderCompiler/v1.9.2609/ThirdPartyNotices.txt",
+  "licenses/microsoft/directx-shader-compiler/LICENSE-MS.txt",
+]
+
+# Windows, WebGPU: onnxruntime.lib (static), webgpu_dawn.dll + .lib, dxcompiler.dll, dxil.dll.
+[[asset]]
+platform      = "x86_64-pc-windows-msvc+wgpu"
+url           = "https://cdn.pyke.io/0/pyke:ort-rs/ms@1.23.2/x86_64-pc-windows-msvc+wgpu.tar.lzma2"
+sha256        = "a9cc0046d631a7da72d76ded177047328cbe6102c5a8079a2c63ba6137c32322"
+sha256_source = "ort-sys 2.0.0-rc.11 build/download/dist.txt"
+
+# Linux, WebGPU (ui#265): libonnxruntime.a (static), libwebgpu_dawn.so.
+[[asset]]
+platform      = "x86_64-unknown-linux-gnu+wgpu"
+url           = "https://cdn.pyke.io/0/pyke:ort-rs/ms@1.23.2/x86_64-unknown-linux-gnu+wgpu.tar.lzma2"
+sha256        = "c9be1443c2aab4688a2f52806b0dc7f421fda6d4b5ccb9522f4e0290a0205b0f"
+sha256_source = "ort-sys 2.0.0-rc.11 build/download/dist.txt"
+
+# Linux, CPU: what main builds until ui#265 lands. libonnxruntime.a.
+[[asset]]
+platform      = "x86_64-unknown-linux-gnu"
+url           = "https://cdn.pyke.io/0/pyke:ort-rs/ms@1.23.2/x86_64-unknown-linux-gnu.tar.lzma2"
+sha256        = "8c57d059aaaee407812a5698d6706c79e090ad69e1a14204309e802dcbbaa35f"
+sha256_source = "ort-sys 2.0.0-rc.11 build/download/dist.txt"
+
+# macOS: what main builds (CoreML) until it moves to gizmo-trinket/onnxruntime-webgpu.
+[[asset]]
+platform      = "aarch64-apple-darwin"
+url           = "https://cdn.pyke.io/0/pyke:ort-rs/ms@1.23.2/aarch64-apple-darwin.tar.lzma2"
+sha256        = "0897a0e1b840566a97e5a49497b02cbc204be2d006815174b639bc99731840f9"
+sha256_source = "ort-sys 2.0.0-rc.11 build/download/dist.txt"
